@@ -1,0 +1,223 @@
+{% extends 'panen/base.html' %}
+
+{% block title %}Manajemen Rantai Pasok - SIPanen Sawit{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-900">Manajemen Rantai Pasok</h1>
+        <p class="mt-1 text-gray-600">Kelola dan pantau pengiriman hasil panen kelapa sawit</p>
+    </div>
+
+    <!-- Shipment Status Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-500">Pengiriman Pending</h3>
+            <p class="mt-2 text-3xl font-bold text-gray-900">{{ pending_shipments.count }}</p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-500">Dalam Perjalanan</h3>
+            <p class="mt-2 text-3xl font-bold text-gray-900">{{ active_shipments.count }}</p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-500">Selesai Hari Ini</h3>
+            <p class="mt-2 text-3xl font-bold text-gray-900">{{ completed_shipments.count }}</p>
+        </div>
+    </div>
+
+    <!-- Active Shipments -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex justify-between items-center">
+            <h2 class="text-lg font-medium text-gray-900">Pengiriman Aktif</h2>
+            <button onclick="showNewShipmentForm()"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black">
+                Tambah Pengiriman
+            </button>
+        </div>
+        <div class="mt-4 flow-root">
+            <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ID</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Asal</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tujuan</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">ETA</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for shipment in active_shipments %}
+                            <tr>
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                                    #{{ shipment.id }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ shipment.harvest_record.location.name }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ shipment.destination }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                        {% if shipment.status == 'pending' %}bg-yellow-100 text-yellow-800
+                                        {% elif shipment.status == 'in_transit' %}bg-blue-100 text-blue-800
+                                        {% else %}bg-green-100 text-green-800{% endif %}">
+                                        {{ shipment.get_status_display }}
+                                    </span>
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ shipment.estimated_arrival|date:"d M Y H:i" }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    <button onclick="showShipmentDetails('{{ shipment.id }}')"
+                                            class="text-black hover:text-gray-700">
+                                        Detail
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="px-3 py-4 text-sm text-gray-500 text-center">
+                                    Tidak ada pengiriman aktif
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shipment History -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Riwayat Pengiriman</h2>
+        <div class="mt-4 flow-root">
+            <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">ID</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Asal</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tujuan</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tanggal Selesai</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Durasi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for shipment in completed_shipments %}
+                            <tr>
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                                    #{{ shipment.id }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ shipment.harvest_record.location.name }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ shipment.destination }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ shipment.actual_arrival|date:"d M Y H:i" }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ shipment.actual_arrival|timeuntil:shipment.departure_date }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="px-3 py-4 text-sm text-gray-500 text-center">
+                                    Belum ada riwayat pengiriman
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Shipment Modal -->
+<div id="newShipmentModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-start">
+            <h3 class="text-lg font-medium text-gray-900">Tambah Pengiriman Baru</h3>
+            <button onclick="closeNewShipmentModal()" class="text-gray-400 hover:text-gray-500">
+                <span class="sr-only">Close</span>
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <form method="post" class="mt-4 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label for="harvest_record" class="block text-sm font-medium text-gray-700">Hasil Panen</label>
+                <select name="harvest_record" id="harvest_record" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm">
+                    <option value="">Pilih Hasil Panen</option>
+                    {% for record in pending_harvests %}
+                        <option value="{{ record.id }}">{{ record.location.name }} - {{ record.date }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="destination" class="block text-sm font-medium text-gray-700">Tujuan</label>
+                <input type="text" name="destination" id="destination" required
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm">
+            </div>
+            <div>
+                <label for="estimated_arrival" class="block text-sm font-medium text-gray-700">Estimasi Kedatangan</label>
+                <input type="datetime-local" name="estimated_arrival" id="estimated_arrival" required
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm">
+            </div>
+            <div>
+                <label for="vehicle_info" class="block text-sm font-medium text-gray-700">Informasi Kendaraan</label>
+                <input type="text" name="vehicle_info" id="vehicle_info" required
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm">
+            </div>
+            <div>
+                <label for="notes" class="block text-sm font-medium text-gray-700">Catatan</label>
+                <textarea name="notes" id="notes" rows="3"
+                          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm"></textarea>
+            </div>
+            <div class="flex justify-end">
+                <button type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black">
+                    Simpan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function showNewShipmentForm() {
+        document.getElementById('newShipmentModal').classList.remove('hidden');
+    }
+
+    function closeNewShipmentModal() {
+        document.getElementById('newShipmentModal').classList.add('hidden');
+    }
+
+    function showShipmentDetails(shipmentId) {
+        // Implement shipment details view
+        console.log('Show details for shipment:', shipmentId);
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('newShipmentModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeNewShipmentModal();
+        }
+    });
+</script>
+{% endblock %}
