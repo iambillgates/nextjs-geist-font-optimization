@@ -1,0 +1,218 @@
+{% extends 'panen/base.html' %}
+
+{% block title %}Prediksi Hasil Panen - SIPanen Sawit{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-900">Prediksi Hasil Panen</h1>
+        <p class="mt-1 text-gray-600">Analisis dan prediksi hasil panen menggunakan algoritma K-means clustering</p>
+    </div>
+
+    <!-- Prediction Form -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Generate Prediksi Baru</h2>
+        <form method="post" class="mt-4 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label for="location" class="block text-sm font-medium text-gray-700">Lokasi</label>
+                <select name="location" id="location" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring-black sm:text-sm">
+                    <option value="">Pilih Lokasi</option>
+                    {% for location in locations %}
+                        <option value="{{ location.id }}">{{ location.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex justify-end">
+                <button type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black">
+                    Generate Prediksi
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Recent Predictions -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Prediksi Terbaru</h2>
+        <div class="mt-4 flow-root">
+            <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Lokasi</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tanggal Prediksi</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Hasil Prediksi (ton)</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tingkat Kepercayaan</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for prediction in recent_predictions %}
+                            <tr>
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                                    {{ prediction.location.name }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ prediction.prediction_date }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ prediction.predicted_yield }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ prediction.confidence_score|floatformat:2 }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    <button onclick="showPredictionDetails('{{ prediction.id }}')"
+                                            class="text-black hover:text-gray-700">
+                                        Lihat Detail
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="px-3 py-4 text-sm text-gray-500 text-center">
+                                    Belum ada prediksi yang dibuat
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clustering Visualization -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Visualisasi Clustering</h2>
+        <div class="mt-4 h-96">
+            <canvas id="clusteringChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Prediction Details Modal -->
+    <div id="predictionModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+            <div class="flex justify-between items-start">
+                <h3 class="text-lg font-medium text-gray-900">Detail Prediksi</h3>
+                <button onclick="closePredictionModal()" class="text-gray-400 hover:text-gray-500">
+                    <span class="sr-only">Close</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="mt-4">
+                <div id="predictionDetails" class="space-y-4">
+                    <!-- Details will be populated via JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize clustering visualization
+    const ctx = document.getElementById('clusteringChart').getContext('2d');
+    const clusteringChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Cluster 1 (Rendah)',
+                    data: [],
+                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                },
+                {
+                    label: 'Cluster 2 (Sedang)',
+                    data: [],
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                },
+                {
+                    label: 'Cluster 3 (Tinggi)',
+                    data: [],
+                    backgroundColor: 'rgba(16, 185, 129, 0.5)',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    title: {
+                        display: true,
+                        text: 'Waktu (Hari)'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Hasil Panen (ton)'
+                    }
+                }
+            }
+        }
+    });
+
+    // Function to show prediction details modal
+    function showPredictionDetails(predictionId) {
+        // Fetch prediction details from API
+        fetch(`/api/predictions/${predictionId}/`)
+            .then(response => response.json())
+            .then(data => {
+                const detailsDiv = document.getElementById('predictionDetails');
+                detailsDiv.innerHTML = `
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-500">Faktor yang Dipertimbangkan</h4>
+                        <pre class="mt-1 text-sm text-gray-900">${JSON.stringify(data.factors_considered, null, 2)}</pre>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-500">Analisis Cluster</h4>
+                        <p class="mt-1 text-sm text-gray-900">
+                            Cluster ${data.factors_considered.assigned_cluster + 1} 
+                            (${data.factors_considered.assigned_cluster === 0 ? 'Rendah' : 
+                               data.factors_considered.assigned_cluster === 1 ? 'Sedang' : 'Tinggi'})
+                        </p>
+                    </div>
+                `;
+                document.getElementById('predictionModal').classList.remove('hidden');
+            });
+    }
+
+    // Function to close prediction details modal
+    function closePredictionModal() {
+        document.getElementById('predictionModal').classList.add('hidden');
+    }
+
+    // Update clustering visualization with sample data
+    // In production, this would be replaced with real clustering results
+    const sampleData = {
+        cluster1: Array.from({length: 10}, (_, i) => ({
+            x: i,
+            y: Math.random() * 5 + 2
+        })),
+        cluster2: Array.from({length: 10}, (_, i) => ({
+            x: i,
+            y: Math.random() * 5 + 8
+        })),
+        cluster3: Array.from({length: 10}, (_, i) => ({
+            x: i,
+            y: Math.random() * 5 + 14
+        }))
+    };
+
+    clusteringChart.data.datasets[0].data = sampleData.cluster1;
+    clusteringChart.data.datasets[1].data = sampleData.cluster2;
+    clusteringChart.data.datasets[2].data = sampleData.cluster3;
+    clusteringChart.update();
+</script>
+{% endblock %}
