@@ -1,0 +1,237 @@
+{% extends 'panen/base.html' %}
+
+{% block title %}Monitoring Real-time - SIPanen Sawit{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-900">Monitoring Real-time</h1>
+        <p class="mt-1 text-gray-600">Pantau kondisi lahan dan sensor secara real-time</p>
+    </div>
+
+    <!-- Sensor Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {% for location in locations %}
+        <div class="bg-white shadow rounded-lg p-6" id="location-{{ location.id }}">
+            <h3 class="text-lg font-medium text-gray-900">{{ location.name }}</h3>
+            <div class="mt-4 space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500">Suhu</span>
+                    <span class="text-sm font-medium text-gray-900" id="temp-{{ location.id }}">
+                        {% if location.id in sensor_data %}
+                            {{ sensor_data|get_item:location.id.temperature }}°C
+                        {% else %}
+                            --
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500">Kelembaban</span>
+                    <span class="text-sm font-medium text-gray-900" id="humidity-{{ location.id }}">
+                        {% if location.id in sensor_data %}
+                            {{ sensor_data|get_item:location.id.humidity }}%
+                        {% else %}
+                            --
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500">Kelembaban Tanah</span>
+                    <span class="text-sm font-medium text-gray-900" id="soil-{{ location.id }}">
+                        {% if location.id in sensor_data %}
+                            {{ sensor_data|get_item:location.id.soil_moisture }}%
+                        {% else %}
+                            --
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-500">Intensitas Cahaya</span>
+                    <span class="text-sm font-medium text-gray-900" id="light-{{ location.id }}">
+                        {% if location.id in sensor_data %}
+                            {{ sensor_data|get_item:location.id.light_intensity }} lux
+                        {% else %}
+                            --
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Real-time Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Temperature Trend -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900">Tren Suhu</h2>
+            <div class="mt-4 h-80">
+                <canvas id="temperatureChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Humidity Trend -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-lg font-medium text-gray-900">Tren Kelembaban</h2>
+            <div class="mt-4 h-80">
+                <canvas id="humidityChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert History -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Riwayat Peringatan</h2>
+        <div class="mt-4 flow-root">
+            <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Waktu</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Lokasi</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Peringatan</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200" id="alertsTable">
+                            <!-- Alerts will be populated via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // WebSocket Connection
+    const ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+    const socket = new WebSocket(ws_scheme + '://' + window.location.host + '/ws/monitoring/');
+
+    socket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        updateSensorData(data);
+    };
+
+    // Initialize Charts
+    const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+    const humidityCtx = document.getElementById('humidityChart').getContext('2d');
+
+    const tempChart = new Chart(tempCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+
+    const humidityChart = new Chart(humidityCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+
+    // Function to update sensor data
+    function updateSensorData(data) {
+        // Update sensor values
+        document.getElementById(`temp-${data.location_id}`).textContent = `${data.temperature}°C`;
+        document.getElementById(`humidity-${data.location_id}`).textContent = `${data.humidity}%`;
+        document.getElementById(`soil-${data.location_id}`).textContent = `${data.soil_moisture}%`;
+        document.getElementById(`light-${data.location_id}`).textContent = `${data.light_intensity} lux`;
+
+        // Update charts
+        updateCharts(data);
+
+        // Check for alerts
+        checkAlerts(data);
+    }
+
+    // Function to update charts
+    function updateCharts(data) {
+        const timestamp = new Date().toLocaleTimeString();
+
+        // Update temperature chart
+        if (tempChart.data.labels.length > 20) {
+            tempChart.data.labels.shift();
+            tempChart.data.datasets[0].data.shift();
+        }
+        tempChart.data.labels.push(timestamp);
+        tempChart.data.datasets[0].data.push(data.temperature);
+        tempChart.update();
+
+        // Update humidity chart
+        if (humidityChart.data.labels.length > 20) {
+            humidityChart.data.labels.shift();
+            humidityChart.data.datasets[0].data.shift();
+        }
+        humidityChart.data.labels.push(timestamp);
+        humidityChart.data.datasets[0].data.push(data.humidity);
+        humidityChart.update();
+    }
+
+    // Function to check for alerts
+    function checkAlerts(data) {
+        if (data.temperature > 35) {
+            addAlert('Suhu tinggi terdeteksi', data.location_id);
+        }
+        if (data.humidity > 85) {
+            addAlert('Kelembaban tinggi terdeteksi', data.location_id);
+        }
+    }
+
+    // Function to add alert to the table
+    function addAlert(message, locationId) {
+        const table = document.getElementById('alertsTable');
+        const row = table.insertRow(0);
+        const timeCell = row.insertCell(0);
+        const locationCell = row.insertCell(1);
+        const messageCell = row.insertCell(2);
+        const statusCell = row.insertCell(3);
+
+        timeCell.textContent = new Date().toLocaleString();
+        locationCell.textContent = `Lokasi ${locationId}`;
+        messageCell.textContent = message;
+        statusCell.innerHTML = '<span class="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Aktif</span>';
+    }
+
+    // Initialize charts with empty data
+    tempChart.data.datasets.push({
+        label: 'Suhu (°C)',
+        data: [],
+        borderColor: 'rgb(239, 68, 68)',
+        tension: 0.1
+    });
+
+    humidityChart.data.datasets.push({
+        label: 'Kelembaban (%)',
+        data: [],
+        borderColor: 'rgb(59, 130, 246)',
+        tension: 0.1
+    });
+</script>
+{% endblock %}
