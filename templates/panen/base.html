@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistem Informasi Kelola Panen Sawit{% endblock %}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="text-xl font-bold text-gray-800">SIPanen Sawit</span>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="{% url 'panen:dashboard' %}" 
+                           class="{% if request.resolver_match.url_name == 'dashboard' %}border-b-2 border-black{% endif %} text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
+                            Dashboard
+                        </a>
+                        <a href="{% url 'panen:monitoring' %}"
+                           class="{% if request.resolver_match.url_name == 'monitoring' %}border-b-2 border-black{% endif %} text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
+                            Monitoring
+                        </a>
+                        <a href="{% url 'panen:predict' %}"
+                           class="{% if request.resolver_match.url_name == 'predict' %}border-b-2 border-black{% endif %} text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
+                            Prediksi
+                        </a>
+                        <a href="{% url 'panen:supply_chain' %}"
+                           class="{% if request.resolver_match.url_name == 'supply_chain' %}border-b-2 border-black{% endif %} text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
+                            Rantai Pasok
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 p-4 {% if message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} rounded-lg">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-8">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-gray-500 text-sm">
+                &copy; {% now "Y" %} Sistem Informasi Kelola Panen Sawit. All rights reserved.
+            </p>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
