@@ -1,0 +1,140 @@
+{% extends 'panen/base.html' %}
+
+{% block title %}Dashboard - SIPanen Sawit{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-900">Dashboard Kelola Panen Sawit</h1>
+        <p class="mt-1 text-gray-600">Monitoring dan analisis data panen kelapa sawit secara real-time</p>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-500">Total Lokasi</h3>
+            <p class="mt-2 text-3xl font-bold text-gray-900">{{ locations.count }}</p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-500">Panen Hari Ini</h3>
+            <p class="mt-2 text-3xl font-bold text-gray-900">
+                {{ recent_harvests.0.quantity|default:"0" }} ton
+            </p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-500">Pengiriman Aktif</h3>
+            <p class="mt-2 text-3xl font-bold text-gray-900">{{ active_shipments.count }}</p>
+        </div>
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-sm font-medium text-gray-500">Rekomendasi Aktif</h3>
+            <p class="mt-2 text-3xl font-bold text-gray-900">{{ recent_recommendations.count }}</p>
+        </div>
+    </div>
+
+    <!-- Recent Harvests -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Panen Terbaru</h2>
+        <div class="mt-4 flow-root">
+            <div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                <div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead>
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Lokasi</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Tanggal</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Jumlah (ton)</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Kualitas</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for harvest in recent_harvests %}
+                            <tr>
+                                <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
+                                    {{ harvest.location.name }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ harvest.date }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ harvest.quantity }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {{ harvest.quality_score }}/100
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="px-3 py-4 text-sm text-gray-500 text-center">
+                                    Belum ada data panen
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Recommendations -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Rekomendasi Terbaru</h2>
+        <div class="mt-4 space-y-4">
+            {% for rec in recent_recommendations %}
+            <div class="border-l-4 {% if rec.priority == 1 %}border-red-500{% elif rec.priority == 2 %}border-yellow-500{% else %}border-green-500{% endif %} bg-gray-50 p-4">
+                <div class="flex justify-between">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-900">{{ rec.get_category_display }}</h3>
+                        <p class="mt-1 text-sm text-gray-600">{{ rec.recommendation }}</p>
+                    </div>
+                    <div class="ml-4">
+                        <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                            Prioritas {{ rec.priority }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-500 text-center">Belum ada rekomendasi aktif</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-lg font-medium text-gray-900">Tren Panen</h2>
+        <div class="mt-4 h-96">
+            <canvas id="harvestTrend"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Sample data for the chart - in production, this would come from your backend
+    const ctx = document.getElementById('harvestTrend').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Hasil Panen (ton)',
+                data: [12, 19, 3, 5, 2, 3],
+                borderColor: 'rgb(75, 85, 99)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
